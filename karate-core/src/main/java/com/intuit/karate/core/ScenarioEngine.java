@@ -23,6 +23,34 @@
  */
 package com.intuit.karate.core;
 
+import java.io.File;
+import java.io.InputStream;
+import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import org.graalvm.polyglot.Value;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
 import com.intuit.karate.FileUtils;
 import com.intuit.karate.Json;
 import com.intuit.karate.JsonUtils;
@@ -38,28 +66,33 @@ import com.intuit.karate.driver.Key;
 import com.intuit.karate.graal.JsEngine;
 import com.intuit.karate.graal.JsFunction;
 import com.intuit.karate.graal.JsValue;
-import com.intuit.karate.http.*;
+import com.intuit.karate.http.ArmeriaHttpClient;
+import com.intuit.karate.http.Cookies;
+import com.intuit.karate.http.HttpClient;
+import com.intuit.karate.http.HttpConstants;
+import com.intuit.karate.http.HttpLogger;
+import com.intuit.karate.http.HttpRequest;
+import com.intuit.karate.http.HttpRequestBuilder;
+import com.intuit.karate.http.Request;
+import com.intuit.karate.http.ResourceType;
+import com.intuit.karate.http.Response;
+import com.intuit.karate.http.WebSocketClient;
+import com.intuit.karate.http.WebSocketOptions;
+import com.intuit.karate.resource.ResourceUtils;
 import com.intuit.karate.shell.Command;
 import com.intuit.karate.template.KarateTemplateEngine;
 import com.intuit.karate.template.TemplateUtils;
 import com.jayway.jsonpath.PathNotFoundException;
-import org.graalvm.polyglot.Value;
-import org.w3c.dom.Attr;
-import org.w3c.dom.Document;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-
-import java.io.File;
-import java.io.InputStream;
-import java.security.KeyStore;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.pk.atf.actor.APIKeyAuthenticaton;
+import com.pk.atf.actor.ActorAuthInfo;
+import com.pk.atf.actor.AuthInfo;
+import com.pk.atf.actor.AuthStrategy;
+import com.pk.atf.actor.AuthenticationInfo;
+import com.pk.atf.actor.Authenticator;
+import com.pk.atf.actor.BasicAuthenticaton;
+import com.pk.atf.actor.OAuthAuthCodeAuthenticaton;
+import com.pk.atf.actor.OAuthClientCredAuthenticaton;
+import com.pk.atf.actor.OAuthResourcePasswordAuthenticaton;
 
 /**
  *
@@ -2203,4 +2236,52 @@ public class ScenarioEngine {
         }
     }
 
+	public void authenticate(String actor) {
+
+		String authenticationInfoString = ResourceUtils.classPathResourceToString("authenticationInfo.json");
+		AuthenticationInfo authenticationInfo = JsonUtils.fromJson(authenticationInfoString, AuthenticationInfo.class);
+		List<ActorAuthInfo> actorAuthInfoList = authenticationInfo
+												.getActorAuthInfo()
+												.stream()
+												.filter(p->p.getActor().equals(actor))
+												.collect(Collectors.toList());
+		
+		if(actorAuthInfoList.size()==0) {
+			throw new RuntimeException("Authentication strategy not defined for actor "+actor);
+		}
+		if(actorAuthInfoList.size()>1) {
+			throw new RuntimeException("More than one authentication strategy defined for actor "+actor);
+		}
+		
+		ActorAuthInfo actorAuthInfo = actorAuthInfoList.get(0);
+		AuthStrategy authStrategy = actorAuthInfo.getAuthStrategy();
+		HttpClient client = runtime.featureRuntime.suite.clientFactory.create(this);
+		Authenticator authenticator;
+		AuthInfo authInfo = actorAuthInfo.getAuthInfo();
+		
+		switch (authStrategy) {
+		case Basic:
+			authenticator = new BasicAuthenticaton();
+			authenticator.authenticate(requestBuilder,authInfo,null);
+			break;
+		case OAuthClientCred:
+			authenticator=new OAuthClientCredAuthenticaton();
+			authenticator.authenticate(requestBuilder, authInfo,client);
+			break;
+		case OAuthResourcePassword:
+			authenticator=new OAuthResourcePasswordAuthenticaton();
+			authenticator.authenticate(requestBuilder, authInfo,client);
+			break;
+		case APIKey:
+			authenticator=new APIKeyAuthenticaton();
+			authenticator.authenticate(requestBuilder, authInfo, null);
+			break;
+		case OAuthAuthCode:
+			authenticator=new OAuthAuthCodeAuthenticaton();
+			authenticator.authenticate(requestBuilder, authInfo, client);
+			break;
+		default:
+			break;
+		}
+	}
 }
