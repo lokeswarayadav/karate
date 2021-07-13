@@ -1,16 +1,17 @@
 package com.pk.atf.actor;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.intuit.karate.http.HttpClient;
 import com.intuit.karate.http.HttpRequestBuilder;
 
 public class APIKeyAuthenticaton implements Authenticator {
 
 	@Override
-	public void authenticate(HttpRequestBuilder requestBuilder, AuthInfo authInfo, HttpClient client) {
+	public void authenticate(HttpRequestBuilder requestBuilder, JsonNode authInfo, HttpClient client) {
 
-		String apikeyName = authInfo.getApikeyName();
-		String apikeyValue = authInfo.getApikeyValue();
-		String apikeyAddedTo = authInfo.getApikeyAddedTo();
+		String apikeyName = authInfo.get("apikeyName").asText();
+		String apikeyValue = authInfo.get("apikeyValue").asText();
+		String apikeyAddedTo = authInfo.get("apikeyAddedTo").asText();
 
 		switch (apikeyAddedTo) {
 		case "HEADER":

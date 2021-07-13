@@ -1,10 +1,11 @@
 package com.pk.atf.actor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 public class ActorAuthInfo {
 	
 	private String actor;
-	private AuthStrategy authStrategy;
-	private AuthInfo authInfo;
+	private JsonNode authStrategies;
 	
 	public String getActor() {
 		return actor;
@@ -12,21 +13,15 @@ public class ActorAuthInfo {
 	public void setActor(String actor) {
 		this.actor = actor;
 	}
-	public AuthStrategy getAuthStrategy() {
-		return authStrategy;
+	public JsonNode getAuthStrategies() {
+		return authStrategies;
 	}
-	public void setAuthStrategy(AuthStrategy authStrategy) {
-		this.authStrategy = authStrategy;
-	}
-	public AuthInfo getAuthInfo() {
-		return authInfo;
-	}
-	public void setAuthInfo(AuthInfo authInfo) {
-		this.authInfo = authInfo;
+	public void setAuthStrategies(JsonNode authStrategies) {
+		this.authStrategies = authStrategies;
 	}
 	@Override
 	public String toString() {
-		return "ActorAuthInfo [actor=" + actor + ", authStrategy=" + authStrategy + ", authInfo=" + authInfo + "]";
+		return "ActorAuthInfo [actor=" + actor + ", authStrategies=" + authStrategies + "]";
 	}
 }
 

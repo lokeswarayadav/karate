@@ -5,5 +5,5 @@ public enum AuthStrategy {
 	OAuthClientCred,
 	OAuthResourcePassword,
 	APIKey,
-	OAuthAuthCode
+	OAuthRefreshToken
 }
