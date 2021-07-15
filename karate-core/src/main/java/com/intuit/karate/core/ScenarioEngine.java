@@ -2221,15 +2221,19 @@ public class ScenarioEngine {
     }
 
     public void matchSchema(String value, String schema) {
-    	// TODO Auto-generated method stub
     	schema=schema.trim();
     	String schemaFileName = schema.substring(0,schema.indexOf("."));
     	String schemaName = schema.substring(schema.indexOf(".")+1);
-    	
     	if(vars.containsKey(value) && !schemaFileName.isEmpty() && !schemaName.isEmpty()) {
     		Variable actual = vars.get(value);
     		String objectToValidate = vars.get(value).getAsString();
-    		String oasSchema = ResourceUtils.classPathResourceToString(schemaFileName+".json");
+    		String oasSchema = org.apache.commons.lang3.StringUtils.EMPTY;
+    		try {
+    			oasSchema = ResourceUtils.classPathResourceToString(schemaFileName+".json");
+    		}
+    		catch (Exception e) {
+    			throw new RuntimeException("OAS contract file not provided/unavailable, please re-check "+schema);
+			}
     		if(oasSchema.equals(null)) throw new RuntimeException("OAS File is not present" + schemaFileName + ".json");
     		
     		final ParseOptions parseOptions = new ParseOptions();
