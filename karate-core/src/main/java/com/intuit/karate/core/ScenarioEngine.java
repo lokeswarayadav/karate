@@ -2221,20 +2221,16 @@ public class ScenarioEngine {
     }
 
     public void matchSchema(String value, String schema) {
+   	
     	schema=schema.trim();
-    	String schemaFileName = schema.substring(0,schema.indexOf("."));
-    	String schemaName = schema.substring(schema.indexOf(".")+1);
+    	String schemaFilePath = vars.get("schemaPath").getAsString();
+    	String schemaFileName = schemaFilePath.substring(schemaFilePath.lastIndexOf("/"));
+    	String schemaName = schema.substring(schema.lastIndexOf(".")+1);
+    	
     	if(vars.containsKey(value) && !schemaFileName.isEmpty() && !schemaName.isEmpty()) {
     		Variable actual = vars.get(value);
     		String objectToValidate = vars.get(value).getAsString();
-    		String oasSchema = org.apache.commons.lang3.StringUtils.EMPTY;
-    		try {
-    			oasSchema = ResourceUtils.classPathResourceToString(schemaFileName+".json");
-    		}
-    		catch (Exception e) {
-    			throw new RuntimeException("OAS contract file not provided/unavailable, please re-check "+schema);
-			}
-    		if(oasSchema.equals(null)) throw new RuntimeException("OAS File is not present" + schemaFileName + ".json");
+    		String oasSchema = vars.get("schemaFile").getAsString();
     		
     		final ParseOptions parseOptions = new ParseOptions();
     		parseOptions.setResolve(true);
@@ -2251,14 +2247,13 @@ public class ScenarioEngine {
     			throw new RuntimeException("Schema is not availble with schemaName: "+schemaName);
     		}
     		
-    		Variable v = vars.get(value);
     		OASSchemaValidator oasSchemaValidator = new OASSchemaValidator();
 
-    		if(v.type == Type.MAP) {
+    		if(actual.type == Type.MAP) {
     			oasSchemaValidator.schemaValidatorMap(schemaValidator, objectToValidate, schemaToValidate);
     		}
-    		if(v.type == Type.LIST) {
-    			oasSchemaValidator.schemaValidatorList(schemaValidator, v, schemaToValidate);
+    		if(actual.type == Type.LIST) {
+    			oasSchemaValidator.schemaValidatorList(schemaValidator, actual, schemaToValidate);
     		}
     		
     	}else {
