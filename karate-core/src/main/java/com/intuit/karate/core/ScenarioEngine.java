@@ -53,6 +53,10 @@ import org.w3c.dom.NodeList;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.atlassian.oai.validator.report.MessageResolver;
+import com.atlassian.oai.validator.report.ValidationReport;
+import com.atlassian.oai.validator.schema.SchemaValidator;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.intuit.karate.FileUtils;
 import com.intuit.karate.Json;
 import com.intuit.karate.JsonUtils;
@@ -62,24 +66,14 @@ import com.intuit.karate.Match;
 import com.intuit.karate.RuntimeHook;
 import com.intuit.karate.StringUtils;
 import com.intuit.karate.XmlUtils;
+import com.intuit.karate.core.Variable.Type;
 import com.intuit.karate.driver.Driver;
 import com.intuit.karate.driver.DriverOptions;
 import com.intuit.karate.driver.Key;
 import com.intuit.karate.graal.JsEngine;
 import com.intuit.karate.graal.JsFunction;
 import com.intuit.karate.graal.JsValue;
-import com.intuit.karate.http.ArmeriaHttpClient;
-import com.intuit.karate.http.Cookies;
-import com.intuit.karate.http.HttpClient;
-import com.intuit.karate.http.HttpConstants;
-import com.intuit.karate.http.HttpLogger;
-import com.intuit.karate.http.HttpRequest;
-import com.intuit.karate.http.HttpRequestBuilder;
-import com.intuit.karate.http.Request;
-import com.intuit.karate.http.ResourceType;
-import com.intuit.karate.http.Response;
-import com.intuit.karate.http.WebSocketClient;
-import com.intuit.karate.http.WebSocketOptions;
+import com.intuit.karate.http.*;
 import com.intuit.karate.resource.ResourceUtils;
 import com.intuit.karate.shell.Command;
 import com.intuit.karate.template.KarateTemplateEngine;
@@ -94,6 +88,34 @@ import com.pk.atf.actor.BasicAuthenticaton;
 import com.pk.atf.actor.OAuthClientCredAuthenticaton;
 import com.pk.atf.actor.OAuthRefreshTokenAuthenticaton;
 import com.pk.atf.actor.OAuthResourcePasswordAuthenticaton;
+import com.pk.atf.OASSchemaValidator;
+
+import io.swagger.parser.OpenAPIParser;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.parameters.Parameter;
+import io.swagger.v3.parser.core.models.ParseOptions;
+import io.swagger.v3.parser.core.models.SwaggerParseResult;
+
+import org.graalvm.polyglot.Value;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import java.io.File;
+import java.io.InputStream;
+import java.security.KeyStore;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -2306,4 +2328,45 @@ public class ScenarioEngine {
 			break;
 		}
 	}
+	
+    public void matchSchema(String value, String schema) {
+   	
+    	schema=schema.trim();
+    	String schemaFilePath = vars.get("schemaPath").getAsString();
+    	String schemaFileName = schemaFilePath.substring(schemaFilePath.lastIndexOf("/"));
+    	String schemaName = schema.substring(schema.lastIndexOf(".")+1);
+    	
+    	if(vars.containsKey(value) && !schemaFileName.isEmpty() && !schemaName.isEmpty()) {
+    		Variable actual = vars.get(value);
+    		String objectToValidate = vars.get(value).getAsString();
+    		String oasSchema = vars.get("schemaFile").getAsString();
+    		
+    		final ParseOptions parseOptions = new ParseOptions();
+    		parseOptions.setResolve(true);
+    		
+    		SwaggerParseResult swaggerParseResult = new OpenAPIParser().readContents(oasSchema, null, parseOptions);
+    		if(!swaggerParseResult.getMessages().isEmpty()) {
+    			throw new RuntimeException("OAS contract parsing failed! "+swaggerParseResult.getMessages().toString());
+    		}
+    		
+    		OpenAPI openAPI = swaggerParseResult.getOpenAPI();
+    		SchemaValidator schemaValidator = new SchemaValidator(openAPI, new MessageResolver());
+    		Schema schemaToValidate = openAPI.getComponents().getSchemas().get(schemaName);
+    		if(schemaToValidate==null) {
+    			throw new RuntimeException("Schema is not availble with schemaName: "+schemaName);
+    		}
+    		
+    		OASSchemaValidator oasSchemaValidator = new OASSchemaValidator();
+
+    		if(actual.type == Type.MAP) {
+    			oasSchemaValidator.schemaValidatorMap(schemaValidator, objectToValidate, schemaToValidate);
+    		}
+    		if(actual.type == Type.LIST) {
+    			oasSchemaValidator.schemaValidatorList(schemaValidator, actual, schemaToValidate);
+    		}
+    		
+    	}else {
+    		throw new RuntimeException("Somthing Worng with schemaFileName: "+schemaFileName +"\n or schemaName: "+schemaName);
+    	}
+    }
 }
